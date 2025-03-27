@@ -3,10 +3,14 @@ class Particle {
       this.pos = createVector(x, y);
       this.vel = createVector(random(-1, 1), random(-1, 1));
       this.acc = createVector(0, 0);
-      this.lifespan = 255;
-      this.maxSpeed = 4;
-      this.history = [];
-      this.color = color(random(180, 250), 100, 100, this.lifespan);
+      this.maxSpeed = random(1, 3.5);
+      this.size = random(1.5, 4.5);
+      this.baseLifespan = random(150, 350);
+      this.lifespan = this.baseLifespan;
+      let hue = random(180, 280);
+      let saturation = random(30, 70);
+      let brightness = random(50, 90);
+      this.color = color(hue, saturation, brightness, this.lifespan);
     }
 
     applyForce(force) {
@@ -18,47 +22,42 @@ class Particle {
       this.vel.limit(this.maxSpeed);
       this.pos.add(this.vel);
       this.acc.mult(0);
-      this.lifespan -= 1.5;
+      this.lifespan -= 1.0;
 
-      this.history.push(this.pos.copy());
-      if (this.history.length > 20) {
-        this.history.splice(0, 1);
-      }
-
-      this.color.setAlpha(this.lifespan);
+      let alpha = map(this.lifespan, 0, this.baseLifespan, 0, 255);
+      this.color.setAlpha(alpha);
     }
 
     display() {
       noStroke();
       fill(this.color);
-      ellipse(this.pos.x, this.pos.y, 4, 4);
-
-      beginShape();
-      noFill();
-      stroke(this.color);
-      strokeWeight(1);
-      for (let v of this.history) {
-        vertex(v.x, v.y);
-      }
-      endShape();
+      ellipse(this.pos.x, this.pos.y, this.size, this.size);
     }
 
-    isDead() {
-      return this.lifespan < 0;
+    isOffScreen() {
+        let margin = this.size * 5;
+        return (this.pos.x < -margin || this.pos.x > width + margin ||
+                this.pos.y < -margin || this.pos.y > height + margin);
     }
 
-    edges() {
-      if (this.pos.x > width + 10) this.pos.x = -10;
-      if (this.pos.x < -10) this.pos.x = width + 10;
-      if (this.pos.y > height + 10) this.pos.y = -10;
-      if (this.pos.y < -10) this.pos.y = height + 10;
+    reset() {
+        this.pos = createVector(random(width), random(height));
+        this.vel = p5.Vector.random2D().mult(this.maxSpeed * random(0.1, 0.5));
+        this.acc = createVector(0, 0);
+        this.lifespan = this.baseLifespan;
+
+        let hue = random(180, 280);
+        let saturation = random(30, 70);
+        let brightness = random(50, 90);
+        this.color = color(hue, saturation, brightness, this.lifespan);
     }
 }
 
 let particles = [];
-let noiseScale = 0.005;
-let noiseStrength = 0.5;
-let numParticles = 5000;
+let noiseScale = 0.003;
+let noiseStrength = 0.3;
+let timeScale = 0.0008;
+let numParticles = 4000;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -74,27 +73,24 @@ function windowResized() {
 }
 
 function draw() {
-  background(0, 0, 0, 50);
+  background(240, 30, 10, 30);
 
-  for (let i = particles.length - 1; i >= 0; i--) {
+  let time = frameCount * timeScale;
+
+  for (let i = 0; i < particles.length; i++) {
     let p = particles[i];
 
-    let angle = noise(p.pos.x * noiseScale, p.pos.y * noiseScale, frameCount * 0.001) * TWO_PI * 2;
+    let angle = noise(p.pos.x * noiseScale, p.pos.y * noiseScale, time) * TWO_PI * 4;
     let flowForce = p5.Vector.fromAngle(angle);
     flowForce.mult(noiseStrength);
     p.applyForce(flowForce);
 
     p.update();
     p.display();
-    p.edges();
 
-    if (p.isDead()) {
-      particles.splice(i, 1);
+    if (p.lifespan < 0 || p.isOffScreen()) {
+      p.reset();
     }
-  }
-
-  while (particles.length < numParticles) {
-    particles.push(new Particle(random(width), random(height)));
   }
 }
 
